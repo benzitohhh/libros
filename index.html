@@ -1,0 +1,235 @@
+<html>
+<head>
+<title>Search me</title>
+<link rel="shortcut icon" type="image/x-icon" href="favicon.ico"/>
+<style>
+.yearInput {
+    width: 40px;
+}
+</style>
+</head>
+<body>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
+
+<script type="text/javascript" charset="utf-8">
+
+    /* ============= providers =========== */
+    
+    var mcu = {
+        name : "www.mcu.es",
+        url : "http://www.mcu.es/webISBN/tituloSimpleFilter.do?cache=init&prev_layout=busquedaisbn&layout=busquedaisbn&language=es",
+        doSearch : function(searchby, keyword) {
+            // NOTE: searchby must be either "AUTOR" or "TITULO"
+            $('input[name="params.liConceptosExt[0].texto"]').val(keyword);
+            $('select[name="params.orderByFormId"]').val(searchby);
+            $("input[value='Buscar']").click();
+        }
+    };
+    
+    var worldcat = {
+        name : "www.worldcat.org",
+        url : "http://www.worldcat.org/advancedsearch",
+        doSearch : function(searchby, keyword, language, fromYear, toYear) {
+            if (searchby=="AUTOR") {
+                $("#search3input").val(keyword);// author
+            } else {
+                $("#search2input").val(keyword); // title
+            }
+            if (fromYear!=null && fromYear!="" && toYear!=null && toYear!="") {
+                $("#yrf").val(fromYear); // yearFrom
+                $("#yrt").val(toYear); // yearTo                
+            }
+            if (language!=null && language!="") {
+                var nLang = "ln:".concat(language); // BEWARE: 'plus' symbol does not escape nicely...
+                $("#limit-6-ln").val(nLang); // language
+            }
+            $("input[value='Search']").last().click();
+        }
+    };
+        
+    var librosar = {
+        name : "www.librosar.com.ar",
+        url : "http://www.librosar.com.ar/librosar/?mo=portal&ac=componentes&ncMenu=4",
+        doSearch : function(searchby, keyword) {
+            if (searchby=="AUTOR") {
+                $("#cdPersona").val(keyword); // author
+            } else {
+                $("#kl").val(keyword); // title
+            }
+            $("input[value='buscar']").click();
+        }
+    };
+        
+    var uba = {
+        name : "opac.filo.uba.ar",
+        url : "http://opac.filo.uba.ar/openopac_form0.php",
+        doSearch : function(searchby, keyword) {
+            $("#termino1").val(keyword);
+            $("input[value='BUSCAR']")[0].onclick = ""; // remove existing handler
+            $("form").attr({target: ""});
+            $("input[value='BUSCAR']").click();
+        }
+    };
+        
+    var isbndb = {
+        name : "isbndb.com",
+        url : "http://isbndb.com/search-all.html",
+        doSearch : function(searchby, keyword) {
+            $("input[name='kw']").val(keyword);
+            $("input[value='Search']").click();
+        }
+    };
+        
+    var ucm = {
+        name : "cisne.sim.ucm.es",
+        url : "http://cisne.sim.ucm.es/search~S6*spi/X",
+        doSearch : function(searchby, keyword, lng, fy, ty) {
+            if (searchby=="AUTOR") {
+                $("select[name='cam1']").val("a:"); // author
+                //$("select[name='cam2']").val("a:"); // author
+            } else {
+                $("select[name='cam1']").val("t:"); // title
+                //$("select[name='cam2']").val("t:"); // title
+            }
+            $("#SEARCH").val(keyword);
+            //$("select[name='con1']").val("and");
+            //$("input[name='pat2']").val(keyword);
+            if (fy!=null && fy!="" && ty!=null && ty!="") {
+                $("#despues").val(fy); // fy
+                $("input[name='Db']").val(ty); // ty              
+            }
+            if (lng!=null && lng!="") {
+                $("select#idioma").val(lng); // language
+            }
+            $("input[value='Buscar']").click();
+        }
+    };
+
+    /* =================================== */
+    
+    /*
+    * Minifies a multiline js string.
+    * Removes comments, trims leading/trailing whitespace,
+    * and replaces EOLs with a space.
+    */
+    function minify(js) {
+        var lines = js.split("\n");
+        $(lines).each(function(idx, line) {
+            // remove comments
+            if (line.indexOf("//") != -1) {
+                line = line.substring(0, line.indexOf("//"));
+            }
+            // trim whitespace
+            line = $.trim(line);
+            lines[idx] = line;
+        });
+        // replace EOLs with a space
+        return lines.join(" ");
+    }
+    
+    var providers = // [worldcat];
+                    [mcu, worldcat, librosar, uba, isbndb, ucm];
+
+    $(function() {
+        // search handlers
+        $("#searchbutton").click(search);
+        $("body").keypress(function(e){
+            if(e.which == 13){
+               // "enter" key was pressed
+               search();
+            }
+        });
+        
+        // sloppy radio button handler
+        $(".radiobuttonholder").click(function() {
+            $(this).find("input").prop('checked', true);
+        });
+        
+        // give focus to serach field
+        $("#keyword").focus();
+    });
+    
+    function search() {
+        // get values
+        var searchby = $('input:radio[name=searchby]:checked').val();
+        var keyword = $("#keyword").val();
+        var language = $("#language").val();
+        var fromYear = $("#fromYear").val();
+        var toYear = $("#toYear").val();
+        
+        // clear existing <a>s
+        $("#hiddenlinks").html("");
+        
+        // for each provider...
+        // create a hidden <a target="_blank" href=echo.php?u=xxx&js=yyy>
+        $(providers).each(function() {
+            var url = this.url;
+            var js = minify(this.doSearch.toString());
+            var name = this.name;
+            
+            var href = "echo.php?" +
+                "&s=" + escape(searchby) + 
+                "&k=" + escape(keyword) + 
+                "&l=" + escape(language) +
+                "&f=" + escape(fromYear) +
+                "&t=" + escape(toYear) +
+                "&u=" + escape(url) +
+                "&js=" + escape(js);
+                
+            window.open(href);
+            
+            // for debugging....
+            var a = $("<a target='_blank' href='" + href + "'>clickclickclik</a>");
+            $("#hiddenlinks").append(a);
+        });
+    }
+</script>
+
+<div id="hiddenlinks" style="display: none;">
+</div>
+
+<form>
+    <div class="radiobuttonholder">
+        <input type="radio" name="searchby" value="AUTOR" checked/>AUTOR
+    </div>
+    <div class="radiobuttonholder">
+        <input type="radio" name="searchby" value="TITULO" />TITULO        
+    </div>
+    <div>
+        <input id="keyword" type="text" value=""/>
+    </div>
+    <div>
+        <select id="language">
+          <option value=""> </option>
+          <option value="eng">English</option>
+          <option value="fre">French</option>
+          <option value="ger">German</option>
+          <option value="ita">Italian</option>
+          <option value="spa">Spanish</option>
+        </select>
+        <label>language (optional)</label>
+    </div>
+    <div>
+        <input class="yearInput" id="fromYear" type="text" value=""/>
+        <label>year from (optional)</label>
+    </div>
+    <div>
+       <input class="yearInput" id="toYear" type="text" value=""/>
+        <label>year to (optional)</label>
+    </div>
+
+    <div>
+        <button id="searchbutton" type="button">Buscar</button>
+    </div>
+</form>
+
+<p>www.mcu.es no funciona? Please click 
+    <a target="brap" href="http://www.mcu.es/webISBN/tituloSimpleFilter.do?cache=init&prev_layout=busquedaisbn&layout=busquedaisbn&language=es" 
+     title="">here</a>, then try again...
+</p>
+
+<p>Nothing happening? Please try unblocking popups (in Google Chrome, right click 
+    the icon at the far right of the search bar)</p>
+
+</body>
+</html>
